@@ -8,7 +8,6 @@
     "npm":"10.2.3"
   },
   "scripts": {
-     "client-install": "npm install --prefix client",
     "dev":"node server.js",
     "start": "nodemon server.js",
     "build":"npm i"
