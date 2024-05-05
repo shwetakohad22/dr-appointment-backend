@@ -3,14 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
-  "engines": {
-    "node":"20.10.0",
-    "npm":"10.2.3"
-  },
   "scripts": {
-    "dev":"node server.js",
+    "dev": "node server.js",
     "start": "nodemon server.js",
-    "build":"npm i"
+    "build": "echo 'No build steps required'"
   },
   "author": "",
   "license": "ISC",
