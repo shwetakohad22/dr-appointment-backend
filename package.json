@@ -2,11 +2,11 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+"main": "index.js",
   "scripts": {
-    "dev": "node server.js",
-    "start": "nodemon server.js",
-    "build": "echo 'No build steps required'"
+    "client-install": "npm install --prefix client",
+    "server": "nodemon server.js",
+    "start": "node server.js"
   },
   "author": "",
   "license": "ISC",
