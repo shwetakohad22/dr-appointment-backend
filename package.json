@@ -2,19 +2,16 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "engines": {
     "node":"20.10.0",
     "npm":"10.2.3"
   },
   "scripts": {
      "client-install": "npm install --prefix client",
-    "server": "nodemon server.js",
-    "client":"npm start --prefix client",
-    "dev":"concurrently \"npm run server\" \"npm run client\"",
-    "start": "node server.js",
-    "heroku-postbuild":"NPM_CONFIG_PRODUCTION=false npm install --prefix client && npm run build --prefix client"
-
+    "dev":"node server.js",
+    "start": "nodemon server.js",
+    "build":"npm i"
   },
   "author": "",
   "license": "ISC",
