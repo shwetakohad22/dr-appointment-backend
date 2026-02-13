@@ -2,6 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const cron = require("node-cron");
+const axios = require("axios");
 
 dotenv.config();
 
@@ -18,7 +20,7 @@ app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
-  })
+  }),
 );
 
 /* =============================
@@ -56,6 +58,24 @@ app.use((err, req, res, next) => {
     success: false,
     message: err.message || "Internal Server Error",
   });
+});
+
+/* =============================
+   HEALTH CHECK & CRON JOB
+============================= */
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ success: true, message: "Server is healthy" });
+});
+
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const healthUrl = `http://localhost:${process.env.PORT || 8001}/health`;
+    const response = await axios.get(healthUrl);
+    console.log(`Health check success: ${response.data.message}`);
+  } catch (error) {
+    console.error("Health check failed:", error.message);
+  }
 });
 
 /* =============================
