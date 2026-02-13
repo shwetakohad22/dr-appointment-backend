@@ -1,5 +1,6 @@
 const doctorModel = require("../models/doctorModel");
 const appointmentModel = require("../models/AppointmentModel");
+const userModel = require("../models/userModel");
 
 const getDoctorInfo = async (req, res) => {
   try {
@@ -24,7 +25,7 @@ const updateDoctorProfile = async (req, res) => {
       {
         userId: req.body.userId,
       },
-      req.body
+      req.body,
     );
     res
       .status(200)
@@ -84,8 +85,17 @@ const changeAppointmentStatus = async (req, res) => {
     const appointment = await appointmentModel.findByIdAndUpdate(
       appointmentId,
       { status },
-      { new: true }
+      { new: true },
     );
+    const user = await userModel.findOne({ _id: appointment.userId });
+    const unseenNotifications = user.unseenNotifications;
+    unseenNotifications.push({
+      type: "appointment-status-changed",
+      message: `Your appointment status has been ${status}`,
+      onClickPath: "/appointments",
+    });
+
+    await user.save();
     res.status(200).json({
       success: true,
       message: `Appointment status updated successfully`,

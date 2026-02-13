@@ -2,6 +2,7 @@ const doctorModel = require("../models/doctorModel");
 const userModel = require("../models/userModel");
 const appointmentModel = require("../models/AppointmentModel");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const register = async (req, res) => {
   try {
@@ -16,9 +17,16 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new userModel({ name, email, password: hashedPassword });
     await newUser.save();
+    const token = jwt.sign(
+      { id: newUser._id },
+      process.env.JWT_SECRET || "your-secret-key",
+      {
+        expiresIn: "1d",
+      },
+    );
     res
       .status(200)
-      .json({ message: "User registered successfully", success: true });
+      .json({ message: "User registered successfully", success: true, token });
   } catch (error) {
     console.error("Error registering user:", error);
     res
@@ -42,9 +50,16 @@ const login = async (req, res) => {
         .status(400)
         .json({ message: "Username or password is incorrect", success: false });
     }
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || "your-secret-key",
+      {
+        expiresIn: "1d",
+      },
+    );
     return res
       .status(200)
-      .json({ message: "Login successful", success: true, user });
+      .json({ message: "Login successful", success: true, token, user });
   } catch (error) {
     console.error("Error logging in:", error);
     res
@@ -81,22 +96,40 @@ const getUserRole = async (req, res) => {
 
 const applyDoctor = async (req, res) => {
   try {
-    const newDoctor = new doctorModel({ ...req.body, status: "Pending" });
+    const image = req.file ? req.file.path : "";
+    const newDoctor = new doctorModel({
+      ...req.body,
+      image,
+      status: "pending",
+    });
     await newDoctor.save();
     const adminUser = await userModel.findOne({ isAdmin: true });
-    await userModel.findOneAndUpdate(
-      { _id: adminUser._id },
-      { isDoctor: true }
-    );
 
-    res
-      .status(200)
-      .json({ message: "Doctor Applied Successfully", success: true });
+    if (adminUser) {
+      const unseenNotifications = adminUser.unseenNotifications;
+      unseenNotifications.push({
+        type: "new-doctor-request",
+        message: `${newDoctor.firstName} ${newDoctor.lastName} has applied for a doctor account`,
+        data: {
+          doctorId: newDoctor._id,
+          name: newDoctor.firstName + " " + newDoctor.lastName,
+          onClickPath: "/admin/doctors",
+        },
+      });
+      await userModel.findByIdAndUpdate(adminUser._id, { unseenNotifications });
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Doctor Account Applied Successfully",
+    });
   } catch (error) {
-    console.error("Error Applying Doctor:", error);
-    res
-      .status(500)
-      .json({ message: "Error Applying Doctor account", success: false });
+    console.log("Error in applyDoctor:", error);
+    res.status(500).send({
+      message: "Error Applying Doctor account",
+      success: false,
+      error: error.message || error,
+    });
   }
 };
 
@@ -129,6 +162,19 @@ const bookAppointment = async (req, res) => {
       date,
     });
     await newAppointment.save();
+
+    // Fetch the user who is booking the appointment
+    console.log("Booking Appointment: userId from request:", userId);
+    const bookingUser = await userModel.findById(userId);
+    console.log("Booking Appointment: found bookingUser:", bookingUser);
+
+    const user = await userModel.findOne({ _id: doctorInfo.userId });
+    user.unseenNotifications.push({
+      type: "new-appointment-request",
+      message: `A new Appointment Request from ${bookingUser ? bookingUser.name : "User"}`,
+      onClickPath: "/doctor/appointments",
+    });
+    await user.save();
     res.status(200).send({
       message: "Appointment booked successfully",
       success: true,
@@ -186,6 +232,90 @@ const getDetailsByUserID = async (req, res) => {
   }
 };
 
+const markAllNotificationsAsSeen = async (req, res) => {
+  try {
+    const user = await userModel.findOne({ _id: req.body.userId });
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const unseenNotifications = user.unseenNotifications;
+    const seenNotifications = user.seenNotifications;
+
+    // Create new array to ensure Mongoose detects change
+    user.seenNotifications = [...seenNotifications, ...unseenNotifications];
+    user.unseenNotifications = [];
+
+    const updatedUser = await user.save();
+    updatedUser.password = undefined;
+    res.status(200).send({
+      success: true,
+      message: "All notifications marked as seen",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      message: "Error marking notifications as seen",
+      success: false,
+      error,
+    });
+  }
+};
+
+const deleteAllNotifications = async (req, res) => {
+  try {
+    const user = await userModel.findOne({ _id: req.body.userId });
+    user.seenNotifications = [];
+    const updatedUser = await user.save();
+    updatedUser.password = undefined;
+    res.status(200).send({
+      success: true,
+      message: "Notifications deleted successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      message: "Error applying doctor account",
+      success: false,
+      error,
+    });
+  }
+};
+
+const updateUserProfile = async (req, res) => {
+  try {
+    const { userId, name, email } = req.body;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    user.name = name || user.name;
+    user.email = email || user.email;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating profile",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -195,4 +325,7 @@ module.exports = {
   bookAppointment,
   getAppointmentsByUserId,
   getDetailsByUserID,
+  markAllNotificationsAsSeen,
+  deleteAllNotifications,
+  updateUserProfile,
 };

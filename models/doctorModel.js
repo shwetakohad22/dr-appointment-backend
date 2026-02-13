@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+
 const doctorSchema = new mongoose.Schema(
   {
     userId: {
@@ -14,7 +15,7 @@ const doctorSchema = new mongoose.Schema(
       required: true,
     },
     phoneNumber: {
-      type: Number,
+      type: String, // FIXED
       required: true,
     },
     address: {
@@ -33,16 +34,15 @@ const doctorSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-
     status: {
       type: String,
       default: "pending",
     },
+    image: {
+      type: String,
+    },
   },
-
-  { 
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const doctorModel = mongoose.model("doctors", doctorSchema);
